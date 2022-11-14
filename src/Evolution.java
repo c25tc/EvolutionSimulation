@@ -12,7 +12,11 @@ import java.util.Objects;
 // todo: check for button collision [x]
 // todo: make a deep copy of neural network [x]
 // todo: do collisions between two organisms (for killing) [x]
-// todo: add setting data like number or organisms etc. []
+// todo: every so often food disappears []
+// todo: every thousand years the food goes down by 100 []
+// todo: killing does not happen instantly and shells lower vulnerability []
+// todo: organisms can loose brain nodes []
+// todo: add setting data like number or organisms etc. [x]
 // todo: add a start screen where you can change certain values like number of organisms or food etc. []
 
 public class Evolution extends PApplet {
@@ -57,6 +61,11 @@ public class Evolution extends PApplet {
     int autoReproduceAge;
     float metabolismDivideAmount;
     int autoKillAge;
+    List<Integer> amountOfOrganisms;
+    List<Integer> amountOfFood;
+    int[] graphDimensions;
+    int graphOffset;
+    boolean graphIsFollowing;
 
 
 
@@ -68,7 +77,7 @@ public class Evolution extends PApplet {
     public void setup() {
         // settings values
         drawStuff = true;
-        showOrganismSettings = true;
+        showOrganismSettings = false;
         buttonPositions = new float[50][4];
         buttonNames = new String[50];
         buttonAmount = 0;
@@ -80,6 +89,12 @@ public class Evolution extends PApplet {
         autoReproduceAge = 200;
         metabolismDivideAmount = 3;
         autoKillAge = 300;
+        amountOfOrganisms = new ArrayList<Integer>();
+        amountOfFood = new ArrayList<Integer>();
+        graphDimensions = new int[] {SCREEN_WIDTH + 10, SETTINGS_WIDTH - 20, 160, 200};
+        graphOffset = 0;
+        graphIsFollowing = true;
+
 
         // other variable assignments
         year = 0;
@@ -138,6 +153,9 @@ public class Evolution extends PApplet {
             clock++;
             if (this.clock > this.maxClock) {
                 year++;
+                if (year % 1001 == 0 && maxFood > 300) maxFood -= 100;
+                amountOfOrganisms.add(organismsList.toArray().length);
+                amountOfFood.add(foodList.toArray().length);
                 clock = 0;
             }
             updateFood();
@@ -169,7 +187,6 @@ public class Evolution extends PApplet {
             int yIndexHidden = 0;
             int yIndexOutput = 0;
 
-            System.out.println(organismsList.toArray().length);
             if (organismsList.toArray().length == 0) {
                 speed = 0;
                 System.out.println("EVERYONE DIED");
@@ -268,6 +285,36 @@ public class Evolution extends PApplet {
             if (!drawStuff) fill(157, 172, 192);
             drawButton("hide board", 10);
 
+            stroke(0);
+            textSize(20);
+            text("total organisms: " + organismsList.toArray().length, SCREEN_WIDTH + 30, 120);
+            text("total food: " + foodList.toArray().length, SCREEN_WIDTH + 30, 145);
+            // graph
+            int graphHeight = 500; // make this change based on size
+            int distanceBetween = 3;
+            if (graphIsFollowing) {
+                graphOffset = Math.min(0, graphDimensions[1]-amountOfOrganisms.toArray().length*distanceBetween);
+            }
+            for (int i = 0; i < amountOfOrganisms.toArray().length; i++) {
+                if (i+1 < amountOfOrganisms.toArray().length && i*3+graphOffset > 0) {
+                    stroke(0);
+                    int x1Height = amountOfOrganisms.get(i);
+                    int x2Height = amountOfOrganisms.get(i+1);
+                    line(graphDimensions[0]+i*distanceBetween + graphOffset, graphDimensions[2]+(graphDimensions[3]-((float)x1Height/graphHeight)*graphDimensions[3]), graphDimensions[0]+(i+1)*distanceBetween + graphOffset, graphDimensions[2]+(graphDimensions[3]-((float)x2Height/graphHeight)*graphDimensions[3]));
+                }
+
+            }
+            for (int i = 0; i < amountOfFood.toArray().length; i++) {
+                if (i+1 < amountOfFood.toArray().length && i*3+graphOffset > 0) {
+                    stroke(255, 0, 0);
+                    int x1Height = amountOfFood.get(i)/2;
+                    int x2Height = amountOfFood.get(i+1)/2;
+                    line(graphDimensions[0]+i*distanceBetween + graphOffset, graphDimensions[2]+(graphDimensions[3]-((float)x1Height/graphHeight)*graphDimensions[3]), graphDimensions[0]+(i+1)*distanceBetween + graphOffset, graphDimensions[2]+(graphDimensions[3]-((float)x2Height/graphHeight)*graphDimensions[3]));
+                }
+
+            }
+
+
         }
         // draw menu
         fill(140, 154, 182);
@@ -336,7 +383,7 @@ public class Evolution extends PApplet {
                 removedOrganisms.add(org);
                 foodList.add(new Food((int) org.pos.x, (int) org.pos.y, org.cells.length + org.cells[0].length, 1, 10));
             }
-            if ((org.health / org.maxHealth > reproductionHealthNeeded && org.energy > reproductionEnergyNeeded && org.reproductiveUrge > reproductionUrgeNeeded && org.age > reproductionAgeNeeded) || org.age + 1 % autoReproduceAge == 0) { // CREATE REPRODUCE!
+            if ((org.health / org.maxHealth > reproductionHealthNeeded && org.energy > reproductionEnergyNeeded && org.reproductiveUrge > reproductionUrgeNeeded && org.age > reproductionAgeNeeded) || org.age + 1 % autoReproduceAge == 0) { // CREATE REPRODUCING!
                 totalOrganisms++;
                 org.energy -= 10;
                 Organism newOrg = new Organism(metabolismDivideAmount);
@@ -357,6 +404,7 @@ public class Evolution extends PApplet {
                 totalOrganisms++;
                 newOrg.neuralNetwork = org.neuralNetwork.makeDeepCopy();
                 newOrg.mutate();
+                newOrg.viewAngles = new int[4][2];
                 newOrg.metabolismCost = newOrg.getMetabolismCost();
                 addedOrganisms.add(newOrg);
             }
@@ -407,7 +455,7 @@ public class Evolution extends PApplet {
                                 fill(100, 97, 160);
                                 if (centerCellPos.dist(food.pos) < (food.size + cellSize + 1)) {
                                     fill(255, 0, 0);
-                                    org.energy += min(org.mouthSize * 5, food.size * 5);
+                                    org.energy += min(org.mouthSize, food.size) * 2;
                                     if (org.energy > org.maxEnergy) {
                                         org.energy = org.maxEnergy;
                                     }
@@ -483,6 +531,7 @@ public class Evolution extends PApplet {
                                 float newX = cos(radians((org.rotation - cellAngle - 90) % 360)) * radius;
                                 PVector centerCellPos = new PVector(pos.x + newY, pos.y + newX);
                                 if (org.cells[x][y] == 8) {
+                                    fill(0);
                                     for (int cellX = 0; cellX < organism.cells.length; cellX++) {
                                         for (int cellY = 0; cellY < organism.cells[0].length; cellY++) {
                                             cellPos = cellPos.set(-(cellX * cellSize + (cellSize / 2f)) + (organism.cells.length * cellSize), cellY * cellSize + (cellSize / 2f));
@@ -492,9 +541,9 @@ public class Evolution extends PApplet {
                                             float newOrgX = cos(radians((org.rotation - orgCellAngle - 90) % 360)) * radius;
                                             PVector newOrgCenterCellPos = new PVector(organismPos.x + newOrgY, organismPos.y + newOrgX);
                                             if (organism.cells[cellX][cellY] != 9 && organism.key != org.key) {
-                                                if (newOrgCenterCellPos.dist(centerCellPos) < (cellSize+1)*2){
-                                                    organism.health -= 10;
-                                                    org.energy += 5;
+                                                if (newOrgCenterCellPos.dist(centerCellPos) < (cellSize+1)*2 && !organism.hasShell){
+                                                    organism.health -= 1 - (organism.blockAmount);
+                                                    org.energy += 1;
                                                 }
                                             }
                                         }
@@ -502,8 +551,6 @@ public class Evolution extends PApplet {
                                 }
 
 
-                                noStroke();
-//                            circle((boardWidth / (float) SCREEN_WIDTH) * (pos.x + newY) + offset.x, (boardWidth / (float) SCREEN_WIDTH) * (pos.y - newX) + offset.y, (boardWidth / (float) SCREEN_WIDTH) * 3);
 
 
                             }
@@ -607,6 +654,13 @@ public class Evolution extends PApplet {
             offset.x -= e * ((mouseX) / 100f);
             offset.y -= e * ((mouseY) / 100f);
         }
+        // scroll graph
+
+        if (mouseX > graphDimensions[0] && mouseX < graphDimensions[0] + graphDimensions[1] && mouseY > graphDimensions[2] && mouseY < graphDimensions[2] + graphDimensions[3]) {
+            graphIsFollowing = false;
+            graphOffset -= e;
+
+        }
     }
 
     public void mousePressed() {
@@ -630,12 +684,15 @@ public class Evolution extends PApplet {
     public void mouseClicked() {
         for (int i = 0; i < buttonPositions.length; i++) {
             float[] pos = buttonPositions[i];
-            if (mouseX > pos[0] && mouseX < pos[0]+pos[2] && mouseY > pos[1] && mouseY < pos[1]+pos[3]) {
+            if (mouseX > pos[0] && mouseX < pos[0] + pos[2] && mouseY > pos[1] && mouseY < pos[1] + pos[3]) {
                 if (Objects.equals(buttonNames[i], "organisms")) showOrganismSettings = true;
                 if (Objects.equals(buttonNames[i], "data")) showOrganismSettings = false;
                 if (Objects.equals(buttonNames[i], "show board")) drawStuff = true;
                 if (Objects.equals(buttonNames[i], "hide board")) drawStuff = false;
             }
+        }
+        if (mouseX > graphDimensions[0] && mouseX < graphDimensions[0] + graphDimensions[1] && mouseY > graphDimensions[2] && mouseY < graphDimensions[2] + graphDimensions[3]) {
+            graphIsFollowing = true;
         }
     }
 
@@ -654,7 +711,7 @@ public class Evolution extends PApplet {
     public void keyPressed() {
         if (key == CODED) {
             if (keyCode == UP && speed < 20) speed++;
-            if (keyCode == DOWN && speed > 1) speed--;
+            if (keyCode == DOWN && speed > 0) speed--;
         }
     }
     // -----x------ mouse event functions -------x--------

@@ -28,6 +28,7 @@ public class Organism {
     int BOARD_WIDTH, BOARD_HEIGHT;
     PVector offset;
     int mouthSize;
+    boolean hasShell;
     float rotation;
     float speed;
     float maxSpeed;
@@ -48,6 +49,7 @@ public class Organism {
     int[][] viewAngles;
     int clock;
     int maxClock;
+    float blockAmount;
     float metabolismDivideAmount;
     NeuralNetwork neuralNetwork;
 
@@ -64,6 +66,7 @@ public class Organism {
         this.generation = 0;
         this.rotation = (int)(Math.random()*360);
         this.speed = 0;
+        this.hasShell = false;
         this.maxSpeed = 0;
         this.seeDistance = 50;
         this.maxHealth = 0;
@@ -111,6 +114,7 @@ public class Organism {
 //        addCell(2, -1, 0);
         this.metabolismDivideAmount = divAmount;
         this.metabolismCost = getMetabolismCost();
+        this.blockAmount = 0;
         neuralNetwork.getOrganismsList(organismsList);
 
     }
@@ -180,6 +184,7 @@ public class Organism {
         int stomachNumber = 0;
         int moverNumber = 0;
         int mouthNumber = 0;
+        int shellNumber = 0;
         int cellNumber = 0;
 
         for (int[] cell : cells) {
@@ -224,8 +229,10 @@ public class Organism {
                     cellNumber ++;
                 }
                 if (i == 9) {
-                    totalCost += .1;
+                    totalCost += .4;
+                    shellNumber ++;
                     cellNumber ++;
+                    this.hasShell = true;
                 }
             }
         }
@@ -236,6 +243,7 @@ public class Organism {
         this.energy = this.maxEnergy/2f;
         this.maxSpeed = max(moverNumber * 2, .2f);
         this.speed = maxSpeed/2;
+        this.blockAmount = shellNumber * .2f;
 
 
         totalCost += speed/maxSpeed;
